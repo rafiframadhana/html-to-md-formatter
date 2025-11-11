@@ -10,6 +10,31 @@ function convertHtmlToMd(html) {
 
     let markdown = html;
 
+    // Remove everything after the "Über Work and Travel Guide" toggle (end of main content)
+    const toggleIndex = markdown.indexOf('Über Work and Travel Guide');
+    if (toggleIndex !== -1) {
+        // Find the start of the <a> tag containing this text
+        const startTag = markdown.lastIndexOf('<a', toggleIndex);
+        if (startTag !== -1) {
+            markdown = markdown.substring(0, startTag);
+        }
+    }
+
+    // Remove button elements completely (including content)
+    markdown = markdown.replace(/<button[^>]*>.*?<\/button>/gis, '');
+
+    // Remove anchor tags that are buttons (Elementor button classes)
+    markdown = markdown.replace(/<a[^>]*class="[^"]*elementor-button[^"]*"[^>]*>.*?<\/a>/gis, '');
+
+    // Remove Elementor toggle/accordion sections completely
+    markdown = markdown.replace(/<div[^>]*elementor-toggle[^>]*>.*?<\/div>/gis, '');
+
+    // Remove remaining elementor-toggle-title anchor tags
+    markdown = markdown.replace(/<a[^>]*class="[^"]*elementor-toggle-title[^"]*"[^>]*>.*?<\/a>/gis, '');
+
+    // Remove anchor tags without href or with empty href (but keep content)
+    markdown = markdown.replace(/<a\s+(?:[^>]*?\s+)?href=""[^>]*>(.*?)<\/a>/gi, '');
+
     // Remove all divs and their attributes (keep content)
     markdown = markdown.replace(/<div[^>]*>/gi, '');
     markdown = markdown.replace(/<\/div>/gi, '');
@@ -58,6 +83,12 @@ function convertHtmlToMd(html) {
 
     // Trim leading/trailing whitespace from each line
     markdown = markdown.split('\n').map(line => line.trim()).join('\n');
+
+    // Remove empty headers (headers with no content or only whitespace)
+    markdown = markdown.replace(/^#{1,6}\s*$/gm, '');
+
+    // Clean up double bold formatting (e.g., **text** **more text**)
+    markdown = markdown.replace(/\*\*\s*\*\*/g, '');
 
     // Remove leading/trailing blank lines
     markdown = markdown.trim();

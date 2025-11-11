@@ -61,12 +61,92 @@
             gap: 12px;
         }
 
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         label {
             font-weight: 600;
             color: #334155;
             font-size: 0.875rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+        }
+
+        .preview-btn {
+            padding: 6px 12px;
+            font-size: 0.875rem;
+            background: white;
+            color: #6366f1;
+            border: 1px solid #6366f1;
+            box-shadow: none;
+        }
+
+        .preview-btn:hover:not(:disabled) {
+            background: #6366f1;
+            color: white;
+        }
+
+        .preview-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .markdown-preview {
+            width: 100%;
+            min-height: 550px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: white;
+            color: #1e293b;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        .markdown-preview h2 {
+            color: #0f172a;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .markdown-preview h3 {
+            color: #1e293b;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .markdown-preview p {
+            margin-bottom: 1rem;
+        }
+
+        .markdown-preview strong {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .markdown-preview ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .markdown-preview li {
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-preview a {
+            color: #6366f1;
+            text-decoration: none;
+        }
+
+        .markdown-preview a:hover {
+            text-decoration: underline;
         }
 
         textarea {
@@ -244,13 +324,18 @@
             </div>
 
             <div class="output-section">
-                <label for="markdown-output">Markdown Output</label>
+                <div class="output-header">
+                    <label for="markdown-output">Markdown Output</label>
+                    <button class="preview-btn" id="preview-btn" onclick="togglePreview()" disabled>
+                        👁️ Preview
+                    </button>
+                </div>
                 <textarea
                     id="markdown-output"
                     placeholder="Markdown will appear here..."
-                    readonly
                     spellcheck="false"
                 ></textarea>
+                <div id="markdown-preview" class="markdown-preview" style="display: none;"></div>
             </div>
         </div>
 
@@ -259,10 +344,13 @@
 
     <script src="converter.js"></script>
     <script>
+        let isPreviewMode = false;
+
         function convert() {
             const htmlInput = document.getElementById('html-input').value;
             const markdownOutput = document.getElementById('markdown-output');
             const copyBtn = document.getElementById('copy-btn');
+            const previewBtn = document.getElementById('preview-btn');
 
             if (!htmlInput.trim()) {
                 showStatus('Please enter some HTML to convert', 'error');
@@ -273,11 +361,83 @@
                 const markdown = convertHtmlToMd(htmlInput);
                 markdownOutput.value = markdown;
                 copyBtn.disabled = false;
+                previewBtn.disabled = false;
+
+                // Reset preview mode if it was active
+                if (isPreviewMode) {
+                    isPreviewMode = false;
+                    document.getElementById('markdown-output').style.display = 'block';
+                    document.getElementById('markdown-preview').style.display = 'none';
+                    previewBtn.textContent = '👁️ Preview';
+                }
+
                 showStatus('Conversion successful!', 'success');
             } catch (error) {
                 showStatus('Error during conversion: ' + error.message, 'error');
                 console.error('Conversion error:', error);
             }
+        }
+
+        function togglePreview() {
+            const markdownOutput = document.getElementById('markdown-output');
+            const markdownPreview = document.getElementById('markdown-preview');
+            const previewBtn = document.getElementById('preview-btn');
+
+            isPreviewMode = !isPreviewMode;
+
+            if (isPreviewMode) {
+                // Show preview
+                const markdown = markdownOutput.value;
+                const html = convertMarkdownToHtml(markdown);
+                markdownPreview.innerHTML = html;
+
+                markdownOutput.style.display = 'none';
+                markdownPreview.style.display = 'block';
+                previewBtn.textContent = '📝 Edit';
+            } else {
+                // Show raw markdown
+                markdownOutput.style.display = 'block';
+                markdownPreview.style.display = 'none';
+                previewBtn.textContent = '👁️ Preview';
+            }
+        }
+
+        function convertMarkdownToHtml(markdown) {
+            let html = markdown;
+
+            // Convert headers
+            html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+
+            // Convert bold
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // Convert links
+            html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+            // Convert lists
+            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+            // Convert paragraphs (text not in other tags)
+            const lines = html.split('\n');
+            let inList = false;
+            html = lines.map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return '';
+
+                if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed === '</ul>') {
+                    if (trimmed === '<ul>') inList = true;
+                    if (trimmed === '</ul>') inList = false;
+                    return trimmed;
+                }
+
+                if (inList) return trimmed;
+
+                return `<p>${trimmed}</p>`;
+            }).join('\n');
+
+            return html;
         }
 
         function copyToClipboard() {
@@ -309,6 +469,16 @@
             document.getElementById('html-input').value = '';
             document.getElementById('markdown-output').value = '';
             document.getElementById('copy-btn').disabled = true;
+            document.getElementById('preview-btn').disabled = true;
+
+            // Reset preview mode
+            if (isPreviewMode) {
+                isPreviewMode = false;
+                document.getElementById('markdown-output').style.display = 'block';
+                document.getElementById('markdown-preview').style.display = 'none';
+                document.getElementById('preview-btn').textContent = '👁️ Preview';
+            }
+
             showStatus('Cleared all fields', 'success');
         }
 
