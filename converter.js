@@ -11,8 +11,17 @@ function convertHtmlToMd(html) {
     let markdown = html;
 
     // Remove everything before the last occurrence of "⚒ – Alles über Jobs" (start of main content)
-    const startMarker = '⚒ – Alles über Jobs';
-    const lastStartIndex = markdown.lastIndexOf(startMarker);
+    // Try both the unicode character and HTML entity version
+    const startMarkers = ['⚒ – Alles über Jobs', '⚒ &#8211; Alles über Jobs'];
+    let lastStartIndex = -1;
+
+    for (const marker of startMarkers) {
+        const index = markdown.lastIndexOf(marker);
+        if (index > lastStartIndex) {
+            lastStartIndex = index;
+        }
+    }
+
     if (lastStartIndex !== -1) {
         // Find the closing tag after this marker to skip the entire navigation item
         const closingTagAfterMarker = markdown.indexOf('</li>', lastStartIndex);
@@ -90,6 +99,11 @@ function convertHtmlToMd(html) {
 
     // Remove any remaining HTML tags
     markdown = markdown.replace(/<[^>]+>/g, '');
+
+    // Decode remaining HTML entities (like &#8211; for en-dash)
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = markdown;
+    markdown = textarea.value;
 
     // Clean up excessive whitespace
     // Replace multiple blank lines with just two newlines

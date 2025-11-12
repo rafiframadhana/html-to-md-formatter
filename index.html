@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML to Markdown Converter</title>
+    <title>WTG Blog Fetcher and Formatter</title>
+    <link rel="icon" type="image/webp" href="public/icon.webp">
     <style>
         * {
             margin: 0;
@@ -38,6 +39,16 @@
             font-size: 2.25rem;
             font-weight: 700;
             letter-spacing: -0.025em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        h1 img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
         }
 
         .subtitle {
@@ -298,8 +309,28 @@
 </head>
 <body>
     <div class="container">
-        <h1>HTML to Markdown Converter</h1>
+        <h1>
+            <img src="public/icon.webp" alt="WTG Icon">
+            WTG Blog Fetcher and Formatter
+        </h1>
         <p class="subtitle">Convert your HTML code to clean Markdown format instantly</p>
+
+        <!-- URL Fetcher Section -->
+        <div style="margin-bottom: 30px; padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <label for="url-input" style="display: block; margin-bottom: 10px;">Or Fetch from URL</label>
+            <div style="display: flex; gap: 12px;">
+                <input
+                    type="text"
+                    id="url-input"
+                    placeholder="https://workandtravelguide.org/..."
+                    style="flex: 1; padding: 12px 16px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px;"
+                />
+                <button class="convert-btn" onclick="fetchFromUrl()" style="white-space: nowrap;">
+                    Fetch & Convert
+                </button>
+            </div>
+            <p style="margin-top: 8px; font-size: 0.875rem; color: #64748b;">Enter a URL to automatically fetch and convert the HTML</p>
+        </div>
 
         <div class="converter-grid">
             <div class="input-section">
@@ -343,162 +374,6 @@
     </div>
 
     <script src="converter.js"></script>
-    <script>
-        let isPreviewMode = false;
-
-        function convert() {
-            const htmlInput = document.getElementById('html-input').value;
-            const markdownOutput = document.getElementById('markdown-output');
-            const copyBtn = document.getElementById('copy-btn');
-            const previewBtn = document.getElementById('preview-btn');
-
-            if (!htmlInput.trim()) {
-                showStatus('Please enter some HTML to convert', 'error');
-                return;
-            }
-
-            try {
-                const markdown = convertHtmlToMd(htmlInput);
-                markdownOutput.value = markdown;
-                copyBtn.disabled = false;
-                previewBtn.disabled = false;
-
-                // Reset preview mode if it was active
-                if (isPreviewMode) {
-                    isPreviewMode = false;
-                    document.getElementById('markdown-output').style.display = 'block';
-                    document.getElementById('markdown-preview').style.display = 'none';
-                    previewBtn.textContent = '👁️ Preview';
-                }
-
-                showStatus('Conversion successful!', 'success');
-            } catch (error) {
-                showStatus('Error during conversion: ' + error.message, 'error');
-                console.error('Conversion error:', error);
-            }
-        }
-
-        function togglePreview() {
-            const markdownOutput = document.getElementById('markdown-output');
-            const markdownPreview = document.getElementById('markdown-preview');
-            const previewBtn = document.getElementById('preview-btn');
-
-            isPreviewMode = !isPreviewMode;
-
-            if (isPreviewMode) {
-                // Show preview
-                const markdown = markdownOutput.value;
-                const html = convertMarkdownToHtml(markdown);
-                markdownPreview.innerHTML = html;
-
-                markdownOutput.style.display = 'none';
-                markdownPreview.style.display = 'block';
-                previewBtn.textContent = '📝 Edit';
-            } else {
-                // Show raw markdown
-                markdownOutput.style.display = 'block';
-                markdownPreview.style.display = 'none';
-                previewBtn.textContent = '👁️ Preview';
-            }
-        }
-
-        function convertMarkdownToHtml(markdown) {
-            let html = markdown;
-
-            // Convert headers
-            html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-            html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-
-            // Convert bold
-            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-            // Convert links
-            html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-
-            // Convert lists
-            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-            html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-
-            // Convert paragraphs (text not in other tags)
-            const lines = html.split('\n');
-            let inList = false;
-            html = lines.map(line => {
-                const trimmed = line.trim();
-                if (!trimmed) return '';
-
-                if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed === '</ul>') {
-                    if (trimmed === '<ul>') inList = true;
-                    if (trimmed === '</ul>') inList = false;
-                    return trimmed;
-                }
-
-                if (inList) return trimmed;
-
-                return `<p>${trimmed}</p>`;
-            }).join('\n');
-
-            return html;
-        }
-
-        function copyToClipboard() {
-            const markdownOutput = document.getElementById('markdown-output');
-
-            if (!markdownOutput.value) {
-                showStatus('Nothing to copy', 'error');
-                return;
-            }
-
-            markdownOutput.select();
-            document.execCommand('copy');
-
-            // Also use modern clipboard API if available
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(markdownOutput.value)
-                    .then(() => {
-                        showStatus('Copied to clipboard!', 'success');
-                    })
-                    .catch(err => {
-                        showStatus('Copied to clipboard!', 'success');
-                    });
-            } else {
-                showStatus('Copied to clipboard!', 'success');
-            }
-        }
-
-        function clearAll() {
-            document.getElementById('html-input').value = '';
-            document.getElementById('markdown-output').value = '';
-            document.getElementById('copy-btn').disabled = true;
-            document.getElementById('preview-btn').disabled = true;
-
-            // Reset preview mode
-            if (isPreviewMode) {
-                isPreviewMode = false;
-                document.getElementById('markdown-output').style.display = 'block';
-                document.getElementById('markdown-preview').style.display = 'none';
-                document.getElementById('preview-btn').textContent = '👁️ Preview';
-            }
-
-            showStatus('Cleared all fields', 'success');
-        }
-
-        function showStatus(message, type) {
-            const statusEl = document.getElementById('status-message');
-            statusEl.textContent = message;
-            statusEl.className = 'status-message show ' + type;
-
-            setTimeout(() => {
-                statusEl.classList.remove('show');
-            }, 3000);
-        }
-
-        // Allow Enter key in textarea (multiline)
-        // But also allow Ctrl+Enter to trigger conversion
-        document.getElementById('html-input').addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                convert();
-            }
-        });
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
