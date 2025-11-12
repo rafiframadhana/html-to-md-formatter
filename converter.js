@@ -10,6 +10,17 @@ function convertHtmlToMd(html) {
 
     let markdown = html;
 
+    // Remove everything before the last occurrence of "⚒ – Alles über Jobs" (start of main content)
+    const startMarker = '⚒ – Alles über Jobs';
+    const lastStartIndex = markdown.lastIndexOf(startMarker);
+    if (lastStartIndex !== -1) {
+        // Find the closing tag after this marker to skip the entire navigation item
+        const closingTagAfterMarker = markdown.indexOf('</li>', lastStartIndex);
+        if (closingTagAfterMarker !== -1) {
+            markdown = markdown.substring(closingTagAfterMarker + 5); // +5 to skip '</li>'
+        }
+    }
+
     // Remove everything after the "Über Work and Travel Guide" toggle (end of main content)
     const toggleIndex = markdown.indexOf('Über Work and Travel Guide');
     if (toggleIndex !== -1) {
@@ -19,6 +30,9 @@ function convertHtmlToMd(html) {
             markdown = markdown.substring(0, startTag);
         }
     }
+
+    // Remove "Share:" text that appears after author name
+    markdown = markdown.replace(/Share:\s*/gi, '');
 
     // Remove button elements completely (including content)
     markdown = markdown.replace(/<button[^>]*>.*?<\/button>/gis, '');
