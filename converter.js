@@ -1,4 +1,60 @@
 /**
+ * Converts HTML tables to Markdown table format
+ * @param {string} html - The HTML string containing tables
+ * @returns {string} - HTML with tables converted to Markdown
+ */
+function convertTablesToMarkdown(html) {
+    // Find all table elements
+    const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+
+    return html.replace(tableRegex, (match, tableContent) => {
+        const rows = [];
+
+        // Extract table rows
+        const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+        let rowMatch;
+        let isFirstRow = true;
+
+        while ((rowMatch = rowRegex.exec(tableContent)) !== null) {
+            const cells = [];
+            const cellContent = rowMatch[1];
+
+            // Extract cells (th or td)
+            const cellRegex = /<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi;
+            let cellMatch;
+
+            while ((cellMatch = cellRegex.exec(cellContent)) !== null) {
+                // Clean cell content - remove nested tags but keep text
+                let content = cellMatch[1];
+                content = content.replace(/<[^>]+>/g, ''); // Remove HTML tags
+                content = content.trim();
+                cells.push(content);
+            }
+
+            if (cells.length > 0) {
+                rows.push(cells);
+
+                // Add separator row after first row (header)
+                if (isFirstRow) {
+                    const separator = cells.map(() => '---');
+                    rows.push(separator);
+                    isFirstRow = false;
+                }
+            }
+        }
+
+        // Convert to Markdown table format
+        if (rows.length === 0) return '';
+
+        const markdownTable = rows.map(row => {
+            return '| ' + row.join(' | ') + ' |';
+        }).join('\n');
+
+        return '\n\n' + markdownTable + '\n\n';
+    });
+}
+
+/**
  * Converts HTML to Markdown format
  * @param {string} html - The HTML string to convert
  * @returns {string} - The converted Markdown string
@@ -78,6 +134,9 @@ function convertHtmlToMd(html) {
 
     // Convert links
     markdown = markdown.replace(/<a\s+(?:[^>]*?\s+)?href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+
+    // Convert tables to Markdown format
+    markdown = convertTablesToMarkdown(markdown);
 
     // Convert unordered lists
     markdown = markdown.replace(/<ul[^>]*>/gi, '\n');

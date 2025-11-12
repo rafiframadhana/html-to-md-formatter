@@ -135,6 +135,9 @@ function togglePreview() {
 function convertMarkdownToHtml(markdown) {
     let html = markdown;
 
+    // Convert tables
+    html = convertMarkdownTablesToHtml(html);
+
     // Convert headers
     html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
     html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
@@ -152,22 +155,98 @@ function convertMarkdownToHtml(markdown) {
     // Convert paragraphs (text not in other tags)
     const lines = html.split('\n');
     let inList = false;
+    let inTable = false;
     html = lines.map(line => {
         const trimmed = line.trim();
         if (!trimmed) return '';
 
-        if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed === '</ul>') {
+        if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed === '</ul>' || trimmed.startsWith('<table') || trimmed === '</table>') {
             if (trimmed === '<ul>') inList = true;
             if (trimmed === '</ul>') inList = false;
+            if (trimmed.startsWith('<table')) inTable = true;
+            if (trimmed === '</table>') inTable = false;
             return trimmed;
         }
 
-        if (inList) return trimmed;
+        if (inList || inTable) return trimmed;
 
         return `<p>${trimmed}</p>`;
     }).join('\n');
 
     return html;
+}
+
+function convertMarkdownTablesToHtml(markdown) {
+    const lines = markdown.split('\n');
+    let result = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        const line = lines[i].trim();
+
+        // Detect table (line with pipes)
+        if (line.startsWith('|') && line.endsWith('|')) {
+            let tableLines = [];
+
+            // Collect all table lines
+            while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+                tableLines.push(lines[i].trim());
+                i++;
+            }
+
+            // Convert table to HTML
+            if (tableLines.length > 0) {
+                let tableHtml = '<table>\n';
+                let isFirstRow = true;
+                let isSeparatorRow = false;
+
+                for (let tableRow of tableLines) {
+                    // Check if this is a separator row (contains only |, -, and spaces)
+                    if (/^\|[\s\-|]+\|$/.test(tableRow)) {
+                        isSeparatorRow = true;
+                        continue; // Skip separator row
+                    }
+
+                    // Parse cells
+                    const cells = tableRow.split('|')
+                        .slice(1, -1) // Remove first and last empty elements
+                        .map(cell => cell.trim());
+
+                    // First row after separator detection is header
+                    if (isFirstRow && !isSeparatorRow) {
+                        tableHtml += '<thead>\n<tr>\n';
+                        cells.forEach(cell => {
+                            tableHtml += `<th>${cell}</th>\n`;
+                        });
+                        tableHtml += '</tr>\n</thead>\n<tbody>\n';
+                        isFirstRow = false;
+                    } else if (!isFirstRow || isSeparatorRow) {
+                        // Data rows
+                        if (isSeparatorRow && isFirstRow) {
+                            // First row was actually header
+                            tableHtml += '<tbody>\n';
+                            isSeparatorRow = false;
+                            isFirstRow = false;
+                            continue;
+                        }
+                        tableHtml += '<tr>\n';
+                        cells.forEach(cell => {
+                            tableHtml += `<td>${cell}</td>\n`;
+                        });
+                        tableHtml += '</tr>\n';
+                    }
+                }
+
+                tableHtml += '</tbody>\n</table>\n';
+                result.push(tableHtml);
+            }
+        } else {
+            result.push(lines[i]);
+            i++;
+        }
+    }
+
+    return result.join('\n');
 }
 
 function copyToClipboard() {
