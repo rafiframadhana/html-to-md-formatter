@@ -122,15 +122,73 @@ function convertHtmlToMd(html) {
     markdown = markdown.replace(/<span[^>]*>/gi, '');
     markdown = markdown.replace(/<\/span>/gi, '');
 
-    // Convert headers
-    // H2 tags
+    // Convert headers (all levels)
+    markdown = markdown.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '\n# $1\n');
     markdown = markdown.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n## $1\n');
-    // H3 tags
     markdown = markdown.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n### $1\n');
+    markdown = markdown.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n#### $1\n');
+    markdown = markdown.replace(/<h5[^>]*>(.*?)<\/h5>/gi, '\n##### $1\n');
+    markdown = markdown.replace(/<h6[^>]*>(.*?)<\/h6>/gi, '\n###### $1\n');
+
+    // Convert images (before links to avoid conflicts)
+    // Skip SVG placeholders, Gravatars, and other non-content images
+    markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, (match, src, alt) => {
+        // Skip SVG placeholders, Gravatars, and avatar images
+        if (src.includes('data:image/svg+xml') ||
+            src.includes('gravatar.com') ||
+            src.includes('avatar')) {
+            return '';
+        }
+        return `![${alt}](${src})`;
+    });
+    markdown = markdown.replace(/<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*>/gi, (match, alt, src) => {
+        // Skip SVG placeholders, Gravatars, and avatar images
+        if (src.includes('data:image/svg+xml') ||
+            src.includes('gravatar.com') ||
+            src.includes('avatar')) {
+            return '';
+        }
+        return `![${alt}](${src})`;
+    });
+    // Images without alt text (but skip SVG placeholders, Gravatars, and avatars)
+    markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, (match, src) => {
+        if (src.includes('data:image/svg+xml') ||
+            src.includes('gravatar.com') ||
+            src.includes('avatar')) {
+            return '';
+        }
+        return `![](${src})`;
+    });
 
     // Convert strong/bold tags
     markdown = markdown.replace(/<strong>(.*?)<\/strong>/gi, '**$1**');
     markdown = markdown.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+
+    // Convert italic/emphasis tags
+    markdown = markdown.replace(/<em>(.*?)<\/em>/gi, '*$1*');
+    markdown = markdown.replace(/<i>(.*?)<\/i>/gi, '*$1*');
+
+    // Convert strikethrough
+    markdown = markdown.replace(/<del>(.*?)<\/del>/gi, '~~$1~~');
+    markdown = markdown.replace(/<s>(.*?)<\/s>/gi, '~~$1~~');
+    markdown = markdown.replace(/<strike>(.*?)<\/strike>/gi, '~~$1~~');
+
+    // Convert code blocks (before inline code)
+    markdown = markdown.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '\n```\n$1\n```\n');
+    markdown = markdown.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, '\n```\n$1\n```\n');
+
+    // Convert inline code
+    markdown = markdown.replace(/<code>(.*?)<\/code>/gi, '`$1`');
+
+    // Convert blockquotes
+    markdown = markdown.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_match, content) => {
+        // Clean the content and add > prefix to each line
+        const lines = content.trim().split('\n');
+        return '\n' + lines.map(line => '> ' + line.trim()).join('\n') + '\n';
+    });
+
+    // Convert horizontal rules
+    markdown = markdown.replace(/<hr[^>]*>/gi, '\n---\n');
 
     // Convert links
     markdown = markdown.replace(/<a\s+(?:[^>]*?\s+)?href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
@@ -138,10 +196,23 @@ function convertHtmlToMd(html) {
     // Convert tables to Markdown format
     markdown = convertTablesToMarkdown(markdown);
 
+    // Convert ordered lists (before unordered lists)
+    markdown = markdown.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, content) => {
+        let counter = 1;
+        const converted = content.replace(/<li[^>]*>(.*?)<\/li>/gi, (_match, itemContent) => {
+            return `${counter++}. ${itemContent}\n`;
+        });
+        return '\n' + converted + '\n';
+    });
+
     // Convert unordered lists
-    markdown = markdown.replace(/<ul[^>]*>/gi, '\n');
-    markdown = markdown.replace(/<\/ul>/gi, '\n');
-    markdown = markdown.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
+    markdown = markdown.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_, content) => {
+        const converted = content.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
+        return '\n' + converted + '\n';
+    });
+
+    // Convert line breaks
+    markdown = markdown.replace(/<br\s*\/?>/gi, '  \n');
 
     // Convert paragraphs (add blank lines between them)
     markdown = markdown.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
